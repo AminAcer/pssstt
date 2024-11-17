@@ -1,7 +1,6 @@
 use zmq;
 
 pub struct Server {
-    context: zmq::Context,
     socket: zmq::Socket,
 }
 
@@ -11,7 +10,7 @@ impl Server {
         let socket = context.socket(zmq::REP).expect("Failed to create socket");
         socket.bind(bind_address).expect("Failed to bind socket");
 
-        Self { context, socket }
+        Self { socket }
     }
 
     pub fn start<F>(&self, handler: F)
@@ -19,10 +18,15 @@ impl Server {
         F: Fn(String) -> String,
     {
         loop {
-            let request = self.socket.recv_string(0).expect("Failed to receive message");
+            let request = self
+                .socket
+                .recv_string(0)
+                .expect("Failed to receive message");
             if let Ok(request) = request {
                 let response = handler(request);
-                self.socket.send(&response, 0).expect("Failed to send response");
+                self.socket
+                    .send(&response, 0)
+                    .expect("Failed to send response");
             }
         }
     }
