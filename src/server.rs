@@ -1,5 +1,4 @@
 use zmq;
-use crate::common::utilities;
 
 pub struct Server {
     context: zmq::Context,
@@ -23,7 +22,7 @@ impl Server {
             let request = self.socket.recv_string(0).expect("Failed to receive message");
             if let Ok(request) = request {
                 let response = handler(request);
-                self.socket.send(response, 0).expect("Failed to send response");
+                self.socket.send(&response, 0).expect("Failed to send response");
             }
         }
     }
