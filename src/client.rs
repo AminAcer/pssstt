@@ -35,3 +35,41 @@ impl Client {
         reply.unwrap()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::common::messages::Response;
+    use crate::server::Server;
+
+    use super::*;
+    use std::thread;
+
+    #[test]
+    fn test_send_message() {
+        // Start a server in a separate thread
+        thread::spawn(|| {
+            let server_id = ServiceID::new("test_service".to_owned(), "test_desc".to_owned());
+            let server = Server::new(server_id, "tcp://0.0.0.0:5555");
+
+            server.start(|msg| {
+                let des_msg = serde_json::from_str::<Message>(&msg).unwrap();
+                let response = format!("Message \"{}\" Received", des_msg.content);
+                return response;
+            });
+        });
+
+        let client = Client::new(ServiceID::default(), "tcp://localhost:5555");
+        let res = client.send_message("TestMessage".to_owned());
+        let de_res = serde_json::from_str::<Response>(&res);
+        assert!(de_res.is_ok());
+
+        let result = de_res.unwrap();
+        assert_eq!(&result.header.service.name, "test_service");
+        assert_eq!(&result.header.service.description, "test_desc");
+        assert_eq!(
+            &result.header.service.uuid,
+            &Uuid::new_v5(&Uuid::NAMESPACE_DNS, "test_service".as_bytes())
+        );
+        assert!(&result.content.contains("TestMessage"));
+    }
+}

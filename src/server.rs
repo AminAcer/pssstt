@@ -43,3 +43,41 @@ impl Server {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::client::Client;
+    use crate::common::messages::{Message, Response};
+    use crate::server::Server;
+
+    use super::*;
+    use std::thread;
+
+    #[test]
+    fn test_recv_message() {
+        // Start a server in a separate thread
+        thread::spawn(|| {
+            let server = Server::new(ServiceID::default(), "tcp://0.0.0.0:5551");
+
+            server.start(|msg| {
+                let des_msg = serde_json::from_str::<Message>(&msg);
+                assert!(des_msg.is_ok());
+
+                let result = des_msg.unwrap();
+                assert_eq!(result.header.service.name, "test_client");
+                assert_eq!(result.header.service.description, "test_desc");
+                assert_eq!(
+                    &result.header.service.uuid,
+                    &Uuid::new_v5(&Uuid::NAMESPACE_DNS, "test_client".as_bytes())
+                );
+                assert_eq!(result.content, "TestMessage");
+                return String::from("Received");
+            });
+        });
+
+        let client_id = ServiceID::new("test_client".to_owned(), "test_desc".to_owned());
+        let client = Client::new(client_id, "tcp://localhost:5551");
+        let res = client.send_message("TestMessage".to_owned());
+        assert!(serde_json::from_str::<Response>(&res).is_ok());
+    }
+}
