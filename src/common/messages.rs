@@ -27,3 +27,14 @@ pub struct Response {
     pub header: Header,
     pub content: String,
 }
+
+impl ServiceID {
+    pub fn new(name: String, description: String) -> Self {
+        let uuid = Uuid::new_v5(&Uuid::NAMESPACE_DNS, name.as_bytes());
+        ServiceID {
+            name,
+            description,
+            uuid,
+        }
+    }
+}
