@@ -19,28 +19,29 @@ impl Server {
         Self { service_id, socket }
     }
 
-    pub fn start<F>(&self, handler: F)
+    pub fn start<F>(server: Server, handler: F)
     where
-        F: Fn(String) -> String,
+        F: Fn(String) -> String + Send + 'static,
     {
-        loop {
-            let request = self
+        std::thread::spawn(move || loop {
+            let request = server
                 .socket
                 .recv_string(0)
                 .expect("Failed to receive message");
             if let Ok(request) = request {
                 let content = handler(request);
                 let header = Header {
-                    service: self.service_id.clone(),
+                    service: server.service_id.clone(),
                     message_id: Uuid::new_v4(),
                     timestamp: Utc::now(),
                 };
                 let res = Response { header, content };
-                self.socket
+                server
+                    .socket
                     .send(&serde_json::to_string(&res).unwrap(), 0)
                     .expect("Failed to send response");
             }
-        }
+        });
     }
 }
 
@@ -58,8 +59,7 @@ mod tests {
         // Start a server in a separate thread
         thread::spawn(|| {
             let server = Server::new(ServiceID::default(), "tcp://0.0.0.0:5551");
-
-            server.start(|msg| {
+            let closure = |msg: String| {
                 let des_msg = serde_json::from_str::<Message>(&msg);
                 assert!(des_msg.is_ok());
 
@@ -72,7 +72,8 @@ mod tests {
                 );
                 assert_eq!(result.content, "TestMessage");
                 return String::from("Received");
-            });
+            };
+            Server::start(server, closure);
         });
 
         let client_id = ServiceID::new("test_client".to_owned(), "test_desc".to_owned());

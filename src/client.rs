@@ -50,12 +50,12 @@ mod tests {
         thread::spawn(|| {
             let server_id = ServiceID::new("test_service".to_owned(), "test_desc".to_owned());
             let server = Server::new(server_id, "tcp://0.0.0.0:5555");
-
-            server.start(|msg| {
+            let closure = |msg: String| {
                 let des_msg = serde_json::from_str::<Message>(&msg).unwrap();
                 let response = format!("Message \"{}\" Received", des_msg.content);
                 return response;
-            });
+            };
+            Server::start(server, closure);
         });
 
         let client = Client::new(ServiceID::default(), "tcp://localhost:5555");
